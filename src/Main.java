@@ -5,4 +5,8 @@ public class Main {
         StaffView view = new StaffView();
         view.start();
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> eb98944ea867319f477f91a2c69897531b467755
