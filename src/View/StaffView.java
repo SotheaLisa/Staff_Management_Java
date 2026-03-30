@@ -2,7 +2,10 @@ package View;
 
 import Control.StaffController;
 import Model.*;
+import Model.Validation;
 import org.nocrala.tools.texttablefmt.BorderStyle;
+import org.nocrala.tools.texttablefmt.CellStyle;
+import org.nocrala.tools.texttablefmt.CellStyle.HorizontalAlign;
 import org.nocrala.tools.texttablefmt.Table;
 
 import java.util.*;
@@ -11,6 +14,9 @@ public class StaffView {
 
     private final StaffController ctrl = new StaffController();
     private final Scanner sc = new Scanner(System.in);
+
+    private static final CellStyle CENTER = new CellStyle(HorizontalAlign.center);
+    private static final CellStyle LEFT   = new CellStyle(HorizontalAlign.left);
 
     // ===== START =====
     public void start() {
@@ -22,10 +28,7 @@ public class StaffView {
                 case 2 -> display();
                 case 3 -> update();
                 case 4 -> remove();
-                case 5 -> {
-                    System.out.println("Goodbye!");
-                    return;
-                }
+                case 5 -> { System.out.println("Goodbye!"); return; }
             }
         }
     }
@@ -33,117 +36,140 @@ public class StaffView {
     // ===== MENU =====
     private void printMenu() {
         Table t = new Table(1, BorderStyle.UNICODE_BOX);
-        t.addCell(" Welcome to Staff Management System");
-        t.addCell("  1. Insert Employee");
-        t.addCell("  2. Display Employee");
-        t.addCell("  3. Update Employee");
-        t.addCell("  4. Remove Employee");
-        t.addCell("  5. Exit");
+        t.addCell("  Welcome to Staff Management System  ", CENTER);
+        t.addCell("  1. Insert Employee                  ", LEFT);
+        t.addCell("  2. Display Employee                 ", LEFT);
+        t.addCell("  3. Update Employee                  ", LEFT);
+        t.addCell("  4. Remove Employee                  ", LEFT);
+        t.addCell("  5. Exit                             ", LEFT);
         System.out.println(t.render());
     }
 
     // ===== INSERT =====
     private void insert() {
-        Table t = new Table(4, BorderStyle.UNICODE_BOX);
-        t.addCell("1. Volunteer");
-        t.addCell("2. Salaried");
-        t.addCell("3. Hourly");
-        t.addCell("0. Back");
-        System.out.println(t.render());
+
+        Table typeTable = new Table(4, BorderStyle.UNICODE_BOX);
+        typeTable.addCell(" 1. Volunteer ", CENTER);
+        typeTable.addCell(" 2. Salaried Employee ", CENTER);
+        typeTable.addCell(" 3. Hourly Employee ", CENTER);
+        typeTable.addCell(" 0. Back ", CENTER);
+        System.out.println(typeTable.render());
 
         System.out.print("Choose Type: ");
         int type = Validation.option(0, 3, sc);
         if (type == 0) return;
 
-        String name = Validation.name(sc);
-        String address = Validation.address(sc);
         int id = ctrl.nextId();
+        System.out.println("Enter ID: " + id);
+
+        String name    = Validation.name(sc);
+        String address = Validation.address(sc);
 
         switch (type) {
-            case 1 -> ctrl.add(new Volunteer(id, name, address,
-                    Validation.positiveDouble("Salary", sc)));
 
-            case 2 -> ctrl.add(new SalariedEmployee(id, name, address,
-                    Validation.positiveDouble("Salary", sc),
-                    Validation.positiveDouble("Bonus", sc)));
+            case 1 -> {
+                double salary = Validation.positiveDouble("Salary", sc);
+                ctrl.add(new Volunteer(id, name, address, salary));
 
-            case 3 -> ctrl.add(new HourlySalaryEmployee(id, name, address,
-                    Validation.positiveInt("Hours", sc),
-                    Validation.positiveDouble("Rate", sc)));
+                printSummary(id, "Volunteer", name, address,
+                        new String[]{"Salary", "Pay"},
+                        new String[]{fmt(salary), fmt(salary)});
+            }
+
+            case 2 -> {
+                double salary = Validation.positiveDouble("Salary", sc);
+                double bonus  = Validation.positiveDouble("Bonus ", sc);
+                double pay = salary + bonus;
+
+                System.out.println("  >> Payment (Salary + Bonus) = " + fmt(pay));
+
+                ctrl.add(new SalariedEmployee(id, name, address, salary, bonus));
+
+                printSummary(id, "SalariedEmployee", name, address,
+                        new String[]{"Salary", "Bonus", "Pay"},
+                        new String[]{fmt(salary), fmt(bonus), fmt(pay)});
+            }
+
+            case 3 -> {
+                int hours   = Validation.positiveInt("Hours", sc);
+                double rate = Validation.positiveDouble("Rate  ", sc);
+                double pay  = hours * rate;
+
+                System.out.println("  >> Payment (Hours x Rate) = " + fmt(pay));
+
+                ctrl.add(new HourlySalaryEmployee(id, name, address, hours, rate));
+
+                printSummary(id, "HourlySalaryEmployee", name, address,
+                        new String[]{"Hours", "Rate", "Pay"},
+                        new String[]{String.valueOf(hours), fmt(rate), fmt(pay)});
+            }
         }
     }
 
-    // ===== DISPLAY (5 rows per page) =====
+    // ===== DISPLAY (UNCHANGED PAGINATION, 5 ROWS PER PAGE) =====
     private void display() {
         List<StaffMember> list = ctrl.getAll();
-        if (list.isEmpty()) {
-            System.out.println("No data.");
-            return;
-        }
+        if (list.isEmpty()) { System.out.println("No data."); return; }
 
-        int pageSize = 5;
+        int pageSize   = 5;
         int totalPages = (int) Math.ceil((double) list.size() / pageSize);
-        int page = 1;
+        int page       = 1;
 
         while (true) {
             int start = (page - 1) * pageSize;
-            int end = Math.min(start + pageSize, list.size());
+            int end   = Math.min(start + pageSize, list.size());
 
             Table t = new Table(9, BorderStyle.UNICODE_BOX);
-            t.addCell("Type"); t.addCell("ID"); t.addCell("Name"); t.addCell("Address");
-            t.addCell("Salary"); t.addCell("Bonus"); t.addCell("Hours"); t.addCell("Rate"); t.addCell("Pay");
+
+            t.addCell("Type", CENTER);
+            t.addCell("ID", CENTER);
+            t.addCell("Name", CENTER);
+            t.addCell("Address", CENTER);
+            t.addCell("Salary", CENTER);
+            t.addCell("Bonus", CENTER);
+            t.addCell("Hours", CENTER);
+            t.addCell("Rate", CENTER);
+            t.addCell("Pay", CENTER);
 
             for (int i = start; i < end; i++) {
                 StaffMember s = list.get(i);
-
                 String sal = "---", bon = "---", hrs = "---", rat = "---";
 
-                if (s instanceof Volunteer v) {
-                    sal = "" + v.getSalary();
-                } else if (s instanceof SalariedEmployee se) {
-                    sal = "" + se.getSalary();
-                    bon = "" + se.getBonus();
+                if (s instanceof Volunteer v) sal = fmt(v.getSalary());
+                else if (s instanceof SalariedEmployee se) {
+                    sal = fmt(se.getSalary());
+                    bon = fmt(se.getBonus());
                 } else if (s instanceof HourlySalaryEmployee h) {
-                    hrs = "" + h.getHoursWorked();
-                    rat = "" + h.getRate();
+                    hrs = String.valueOf(h.getHoursWorked());
+                    rat = fmt(h.getRate());
                 }
 
-                t.addCell(s.getClass().getSimpleName());
-                t.addCell("" + s.getId());
-                t.addCell(s.getName());
-                t.addCell(s.getAddress());
-                t.addCell(sal);
-                t.addCell(bon);
-                t.addCell(hrs);
-                t.addCell(rat);
-                t.addCell(String.format("%.1f", s.pay()));
+                t.addCell(s.getClass().getSimpleName(), LEFT);
+                t.addCell(String.valueOf(s.getId()), CENTER);
+                t.addCell(s.getName(), LEFT);
+                t.addCell(s.getAddress(), LEFT);
+                t.addCell(sal, CENTER);
+                t.addCell(bon, CENTER);
+                t.addCell(hrs, CENTER);
+                t.addCell(rat, CENTER);
+                t.addCell(fmt(s.pay()), CENTER);
             }
 
-            System.out.println("Page " + page + "/" + totalPages);
+            System.out.println("\nPage " + page + " / " + totalPages);
             System.out.println(t.render());
 
             Table nav = new Table(3, BorderStyle.UNICODE_BOX);
-            nav.addCell("[P] Prev");
-            nav.addCell("[N] Next");
-            nav.addCell("[0] Back");
+            nav.addCell(" [P] Prev ", CENTER);
+            nav.addCell(" [N] Next ", CENTER);
+            nav.addCell(" [0] Back ", CENTER);
             System.out.println(nav.render());
 
             System.out.print("Choice: ");
-            String choice = sc.nextLine().trim().toUpperCase();
-
-            switch (choice) {
-                case "N" -> {
-                    if (page < totalPages) page++;
-                    else System.out.println("Last page!");
-                }
-                case "P" -> {
-                    if (page > 1) page--;
-                    else System.out.println("First page!");
-                }
-                case "0" -> {
-                    return;
-                }
-                default -> System.out.println("Invalid choice!");
+            switch (sc.nextLine().trim().toUpperCase()) {
+                case "N" -> { if (page < totalPages) page++; else System.out.println("Last page!"); }
+                case "P" -> { if (page > 1) page--; else System.out.println("First page!"); }
+                case "0" -> { return; }
+                default  -> System.out.println("Invalid choice!");
             }
         }
     }
@@ -226,5 +252,37 @@ public class StaffView {
         } else {
             System.out.println("Cancelled.");
         }
+    }
+
+    private void printSummary(int id, String type, String name, String address,
+                              String[] fields, String[] values) {
+
+        Table s = new Table(2, BorderStyle.UNICODE_BOX);
+
+        s.addCell("Field", CENTER);
+        s.addCell("Value", CENTER);
+
+        s.addCell("ID", CENTER);
+        s.addCell(String.valueOf(id), LEFT);
+
+        s.addCell("Type", CENTER);
+        s.addCell(type, LEFT);
+
+        s.addCell("Name", CENTER);
+        s.addCell(name, LEFT);
+
+        s.addCell("Address", CENTER);
+        s.addCell(address, LEFT);
+
+        for (int i = 0; i < fields.length; i++) {
+            s.addCell(fields[i], CENTER);
+            s.addCell(values[i], LEFT);
+        }
+
+        System.out.println("Added successfully!");
+    }
+
+    private String fmt(double v) {
+        return String.format("%.1f", v);
     }
 }
